@@ -7,11 +7,13 @@ import argparse
 import sys
 import random
 
-server_address = "127.0.0.1:8188"
-client_id = str(uuid.uuid4())
+import os
 
-def queue_prompt(prompt):
-    p = {"prompt": prompt, "client_id": client_id}
+SERVER_ADDRESS = os.environ.get("COMFYUI_ADDRESS", "127.0.0.1:8188")
+CLIENT_ID = str(uuid.uuid4())
+
+def queue_prompt(prompt, server_address):
+    p = {"prompt": prompt, "client_id": CLIENT_ID}
     data = json.dumps(p).encode('utf-8')
     req = urllib.request.Request(f"http://{server_address}/prompt", data=data)
     try:
@@ -22,11 +24,11 @@ def queue_prompt(prompt):
         print(f"📝 DETAILS: {e.read().decode()}")
         sys.exit(1)
 
-def get_history(prompt_id):
+def get_history(prompt_id, server_address):
     with urllib.request.urlopen(f"http://{server_address}/history/{prompt_id}") as response:
         return json.loads(response.read())
 
-def generate_image(user_prompt, output_filename_base, width, height):
+def generate_image(user_prompt, output_filename_base, width, height, server_address):
     # Verified working model from your previous logs
     ckpt = "v1-5-pruned-emaonly-fp16.safetensors"
     seed = random.randint(0, 18446744073709551615)
@@ -43,10 +45,10 @@ def generate_image(user_prompt, output_filename_base, width, height):
         }
 
         ws = websocket.WebSocket()
-        ws.connect(f"ws://{server_address}/ws?clientId={client_id}")
-        print(f"🚀 [RTX 3060] Seed: {seed} | Generating Vertical Asset...")
+        ws.connect(f"ws://{server_address}/ws?clientId={CLIENT_ID}")
+        print(f"🚀 Seed: {seed} | Generating Asset...")
         
-        result = queue_prompt(workflow)
+        result = queue_prompt(workflow, server_address)
         prompt_id = result['prompt_id']
         
         while True:
@@ -56,7 +58,7 @@ def generate_image(user_prompt, output_filename_base, width, height):
                 if msg['type'] == 'executing' and msg['data']['node'] is None and msg['data']['prompt_id'] == prompt_id:
                     break
         
-        history = get_history(prompt_id)[prompt_id]
+        history = get_history(prompt_id, server_address)[prompt_id]
         for node_id in history['outputs']:
             node_output = history['outputs'][node_id]
             if 'images' in node_output:
@@ -70,9 +72,10 @@ def generate_image(user_prompt, output_filename_base, width, height):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("prompt")
-    parser.add_argument("--name", default="evergreen")
-    parser.add_argument("--width", type=int, default=512) 
-    parser.add_argument("--height", type=int, default=896) # Safe vertical for SD 1.5
+    parser.add_argument("prompt", help="Text prompt for image generation")
+    parser.add_argument("--name", default="evergreen", help="Prefix for the output filename")
+    parser.add_argument("--width", type=int, default=512, help="Image width")
+    parser.add_argument("--height", type=int, default=896, help="Image height")
+    parser.add_argument("--server", default=SERVER_ADDRESS, help="ComfyUI server address (e.g. 127.0.0.1:8188)")
     args = parser.parse_args()
-    generate_image(args.prompt, args.name, args.width, args.height)
+    generate_image(args.prompt, args.name, args.width, args.height, args.server)
