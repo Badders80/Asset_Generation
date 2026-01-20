@@ -6,3 +6,4 @@ outputs/
 02_assets/
 
 comfyui_server.log
+asset_gen.log
