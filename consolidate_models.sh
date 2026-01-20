@@ -73,9 +73,13 @@ function create_symlink() {
 create_symlink "$SOURCE_MODELS/Checkpoints/flux1-schnell-fp8.safetensors" "$COMFY_MODELS/checkpoints"
 create_symlink "$SOURCE_MODELS/Checkpoints/sd_xl_base_1.0.safetensors" "$COMFY_MODELS/checkpoints"
 create_symlink "$SOURCE_MODELS/diffusion_models/wan2.1_t2v_1.3B_fp16.safetensors" "$COMFY_MODELS/diffusion_models"
-# Add other text encoders and VAEs if they exist
-for te in "$SOURCE_MODELS/text_encoders"/*; do create_symlink "$te" "$COMFY_MODELS/clip"; done
-for vae in "$SOURCE_MODELS/VAE"/*; do create_symlink "$vae" "$COMFY_MODELS/vae"; done
 
-SAVED_GB=$(echo "scale=2; $SPACE_SAVED / 1024 / 1024 / 1024" | bc)
+# Consolidate all secondary model types
+echo "Linking secondary model components..."
+for te in "$SOURCE_MODELS/text_encoders"/*; do [ -e "$te" ] && create_symlink "$te" "$COMFY_MODELS/clip"; done
+for vae in "$SOURCE_MODELS/VAE"/*; do [ -e "$vae" ] && create_symlink "$vae" "$COMFY_MODELS/vae"; done
+for lora in "$SOURCE_MODELS/LoRAs"/*; do [ -e "$lora" ] && create_symlink "$lora" "$COMFY_MODELS/loras"; done
+for cn in "$SOURCE_MODELS/ControlNet"/*; do [ -e "$cn" ] && create_symlink "$cn" "$COMFY_MODELS/controlnet"; done
+
+SAVED_GB=$(awk "BEGIN {print $SPACE_SAVED / 1024 / 1024 / 1024}")
 echo -e "\n✅ Optimization Complete. Total space saved in project dir: ${SAVED_GB} GB"

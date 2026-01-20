@@ -21,6 +21,7 @@
 - **Flux Schnell**: Configured with 4 steps and 1.0 CFG. Optimized for FP8 execution.
 - **SDXL**: Set as the default "balanced" model for production imagery.
 - **Wan2.1**: Added dedicated video workflow for high-fidelity horse motion.
+- **SVD**: Preserved SVD workflow as a lightweight video alternative.
 - **Hardware Optimization**:
   - Enabled batch sizes of 1 to prevent OOM.
   - Used Euler/Simple schedulers for Flux to maximize speed.

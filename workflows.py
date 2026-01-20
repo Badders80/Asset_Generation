@@ -124,3 +124,30 @@ def get_paint_by_numbers_workflow(prompt, reference_image, name, seed, steps=Non
         "9": {"class_type": "VAEDecode", "inputs": {"samples": ["8", 0], "vae": ["4", 2]}},
         "10": {"class_type": "SaveImage", "inputs": {"filename_prefix": name, "images": ["9", 0]}}
     }
+
+def get_text_to_video_workflow(prompt, name, seed, steps=None, cfg=None):
+    # Simple SVD-based video generation (requires SVD checkpoint)
+    actual_steps = steps if steps is not None else 20
+    actual_cfg = cfg if cfg is not None else 2.5
+    return {
+        "1": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 1], "text": prompt}},
+        "2": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "svd.safetensors"}},
+        "3": {"class_type": "SVD_img2vid_Conditioning", "inputs": {"clip_vision": ["2", 1], "init_image": ["4", 0], "width": 512, "height": 512, "video_frames": 14, "motion_bucket_id": 127, "fps": 6, "augmentation_level": 0.0}},
+        "4": {"class_type": "EmptyImage", "inputs": {"width": 512, "height": 512, "color": 0}},
+        "5": {"class_type": "KSampler", "inputs": {"cfg": actual_cfg, "denoise": 1.0, "latent_image": ["3", 2], "model": ["2", 0], "negative": ["1", 0], "positive": ["3", 0], "sampler_name": "euler", "scheduler": "karras", "seed": seed, "steps": actual_steps}},
+        "6": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["2", 2]}},
+        "7": {"class_type": "VideoCombine", "inputs": {"images": ["6", 0], "frame_rate": 6, "loop_count": 0, "filename_prefix": name, "format": "video/h264-mp4"}}
+    }
+
+def get_image_to_video_workflow(image_path, name, seed, steps=None, cfg=None):
+    actual_steps = steps if steps is not None else 20
+    actual_cfg = cfg if cfg is not None else 2.5
+    return {
+        "1": {"class_type": "LoadImage", "inputs": {"image": image_path}},
+        "2": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "svd.safetensors"}},
+        "3": {"class_type": "SVD_img2vid_Conditioning", "inputs": {"clip_vision": ["2", 1], "init_image": ["1", 0], "width": 512, "height": 512, "video_frames": 14, "motion_bucket_id": 127, "fps": 6, "augmentation_level": 0.0}},
+        "4": {"class_type": "KSampler", "inputs": {"cfg": actual_cfg, "denoise": 1.0, "latent_image": ["3", 2], "model": ["2", 0], "negative": ["5", 0], "positive": ["3", 0], "sampler_name": "euler", "scheduler": "karras", "seed": seed, "steps": actual_steps}},
+        "5": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 1], "text": "low quality, blurry"}},
+        "6": {"class_type": "VAEDecode", "inputs": {"samples": ["4", 0], "vae": ["2", 2]}},
+        "7": {"class_type": "VideoCombine", "inputs": {"images": ["6", 0], "frame_rate": 6, "loop_count": 0, "filename_prefix": name, "format": "video/h264-mp4"}}
+    }
