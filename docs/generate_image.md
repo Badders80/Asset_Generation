@@ -14,7 +14,7 @@ python3 generate_image.py "your prompt here" [options]
 
 ### Text to Image (`text-to-image`)
 Generates an image from a text prompt.
-- **Models**: `sd15` (balanced), `flux-klein-4b` (high quality).
+- **Models**: `sd15` (balanced), `flux-klein-4b` (high quality), `sdxl` (high quality alternative).
 - **Optimization**: Use `--quality high` to enable high-resolution upscaling.
 
 ### Paint by Numbers (`paint-by-numbers`)
@@ -44,7 +44,7 @@ Animates a static input image into a video.
 - `--image`: Path to an input image (required for `image-to-video` and `paint-by-numbers`).
 - `--name`: Prefix for the output filename.
 - `--width/--height`: Dimensions for the generation.
-- `--model`: Manually specify the model architecture (`sd15`, `flux-klein-4b`, `svd`).
+- `--model`: Manually specify the model architecture (`sd15`, `flux-klein-4b`, `svd`, `sdxl`).
 - `--steps/--cfg`: Manual overrides for sampling steps and guidance scale.
 
 ## Hardware Optimization (RTX 3060 12GB)

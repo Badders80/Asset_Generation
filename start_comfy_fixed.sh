@@ -5,9 +5,16 @@ PROJECT_DIR="${PROJECT_DIR:-$(pwd)}"
 COMFYUI_DIR="${COMFYUI_DIR:-/mnt/scratch/projects/ComfyUI}"
 LOG_FILE="$PROJECT_DIR/comfyui_server.log"
 
+# Optional: Clean restart
+if [[ "$1" == "--clean" ]]; then
+    echo "🧹 Killing existing ComfyUI processes..."
+    pkill -f "python main.py --listen 0.0.0.0" || true
+    sleep 2
+fi
+
 # Check if ComfyUI is already running
 if pgrep -f "python main.py --listen 0.0.0.0" > /dev/null; then
-    echo "⚠️ ComfyUI is already running."
+    echo "⚠️ ComfyUI is already running. Use --clean for a fresh start."
     exit 0
 fi
 
