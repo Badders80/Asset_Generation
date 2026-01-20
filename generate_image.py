@@ -30,19 +30,22 @@ def validate_args(args):
 
 def suggest_model(args):
     """Suggests the best model based on the task and preference."""
-    if args.task == "text-to-video" or args.task == "image-to-video":
+    if args.task == "text-to-video":
+        return "wan-video"
+
+    if args.task == "image-to-video":
         return "svd"
 
     if args.task == "paint-by-numbers":
-        return "sd15" # ControlNet is most stable on SD1.5
+        return "sdxl" # SDXL ControlNet is superior to SD1.5
 
     if args.task == "text-to-image":
         if args.quality == "high":
-            return "flux-klein-4b"
+            return "flux-schnell"
         else:
-            return "sd15"
+            return "sdxl"
 
-    return "sd15"
+    return "sdxl"
 
 def queue_prompt(prompt, server_address):
     p = {"prompt": prompt, "client_id": CLIENT_ID}
@@ -102,12 +105,12 @@ def get_workflow(args, seed):
     upscale = (args.quality == "high")
 
     if args.task == "text-to-image":
-        if args.model == "flux-klein-4b":
-            return workflows.get_flux_klein_t2i_workflow(args.prompt, args.name, args.width, args.height, seed, args.steps, args.cfg, upscale)
+        if args.model == "flux-schnell":
+            return workflows.get_flux_schnell_workflow(args.prompt, args.name, args.width, args.height, seed, args.steps, args.cfg, upscale)
         elif args.model == "sdxl":
             return workflows.get_sdxl_t2i_workflow(args.prompt, args.name, args.width, args.height, seed, args.steps, args.cfg, upscale)
         else:
-            return workflows.get_sd15_t2i_workflow(args.prompt, args.name, args.width, args.height, seed, args.steps, args.cfg, upscale)
+            return workflows.get_sdxl_t2i_workflow(args.prompt, args.name, args.width, args.height, seed, args.steps, args.cfg, upscale)
 
     elif args.task == "paint-by-numbers":
         if not args.image:
@@ -116,6 +119,8 @@ def get_workflow(args, seed):
         return workflows.get_paint_by_numbers_workflow(args.prompt, server_filename, args.name, seed, args.steps, args.cfg)
 
     elif args.task == "text-to-video":
+        if args.model == "wan-video":
+            return workflows.get_wan_video_workflow(args.prompt, args.name, seed, args.steps)
         return workflows.get_text_to_video_workflow(args.prompt, args.name, seed, args.steps, args.cfg)
 
     elif args.task == "image-to-video":
@@ -184,7 +189,7 @@ if __name__ == "__main__":
     parser.add_argument("--width", type=int, default=512, help="Image width")
     parser.add_argument("--height", type=int, default=896, help="Image height")
     parser.add_argument("--server", default=SERVER_ADDRESS, help="ComfyUI server address (e.g. 127.0.0.1:8188)")
-    parser.add_argument("--model", default="sd15", choices=["sd15", "flux-klein-4b", "svd", "sdxl"], help="Model architecture to use")
+    parser.add_argument("--model", default="sdxl", choices=["sdxl", "flux-schnell", "svd", "wan-video"], help="Model architecture to use")
     parser.add_argument("--auto-model", action="store_true", help="Automatically select the best model for the task")
     parser.add_argument("--quality", default="balanced", choices=["speed", "balanced", "high"], help="Quality preference")
     parser.add_argument("--steps", type=int, help="Number of sampling steps (overrides model default)")
