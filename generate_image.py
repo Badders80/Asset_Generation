@@ -50,21 +50,39 @@ def get_history(prompt_id, server_address):
     except Exception as e:
         raise error_handler.ComfyUIError(f"Failed to retrieve history for {prompt_id}: {e}")
 
-def generate_image(user_prompt, output_filename_base, width, height, server_address):
-    # Verified working model from previous logs
-    ckpt = "v1-5-pruned-emaonly-fp16.safetensors"
-    seed = random.randint(0, 18446744073709551615)
-    ws = None
-    try:
-        workflow = {
-            "3": {"class_type": "KSampler", "inputs": {"cfg": 8, "denoise": 1, "latent_image": ["5", 0], "model": ["4", 0], "negative": ["7", 0], "positive": ["6", 0], "sampler_name": "euler", "scheduler": "normal", "seed": seed, "steps": 20}},
-            "4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt}},
+def get_workflow(model_type, user_prompt, output_filename_base, width, height, seed, steps=None, cfg=None):
+    """Returns the appropriate workflow JSON for the selected model type."""
+    if model_type == "flux-klein-4b":
+        # Default steps for Klein distilled is 4
+        actual_steps = steps if steps is not None else 4
+        actual_cfg = cfg if cfg is not None else 1.0
+        return {
+            "3": {"class_type": "KSampler", "inputs": {"cfg": actual_cfg, "denoise": 1.0, "latent_image": ["5", 0], "model": ["4", 0], "negative": ["7", 0], "positive": ["6", 0], "sampler_name": "euler", "scheduler": "simple", "seed": seed, "steps": actual_steps}},
+            "4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "flux-2-klein-4b-fp8.safetensors"}},
+            "5": {"class_type": "EmptyLatentImage", "inputs": {"batch_size": 1, "height": height, "width": width}},
+            "6": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["4", 1], "text": user_prompt}},
+            "7": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["4", 1], "text": ""}},
+            "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["4", 2]}},
+            "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": output_filename_base, "images": ["8", 0]}}
+        }
+    else: # Default to sd15
+        actual_steps = steps if steps is not None else 20
+        actual_cfg = cfg if cfg is not None else 8.0
+        return {
+            "3": {"class_type": "KSampler", "inputs": {"cfg": actual_cfg, "denoise": 1, "latent_image": ["5", 0], "model": ["4", 0], "negative": ["7", 0], "positive": ["6", 0], "sampler_name": "euler", "scheduler": "normal", "seed": seed, "steps": actual_steps}},
+            "4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "v1-5-pruned-emaonly-fp16.safetensors"}},
             "5": {"class_type": "EmptyLatentImage", "inputs": {"batch_size": 1, "height": height, "width": width}},
             "6": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["4", 1], "text": user_prompt}},
             "7": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["4", 1], "text": "text, watermark, blurry, low quality"}},
             "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["4", 2]}},
             "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": output_filename_base, "images": ["8", 0]}}
         }
+
+def generate_image(user_prompt, output_filename_base, width, height, server_address, model_type="sd15", steps=None, cfg=None):
+    seed = random.randint(0, 18446744073709551615)
+    ws = None
+    try:
+        workflow = get_workflow(model_type, user_prompt, output_filename_base, width, height, seed, steps, cfg)
 
         ws = websocket.WebSocket()
         ws.connect(f"ws://{server_address}/ws?clientId={CLIENT_ID}")
@@ -108,12 +126,15 @@ if __name__ == "__main__":
     parser.add_argument("--width", type=int, default=512, help="Image width")
     parser.add_argument("--height", type=int, default=896, help="Image height")
     parser.add_argument("--server", default=SERVER_ADDRESS, help="ComfyUI server address (e.g. 127.0.0.1:8188)")
+    parser.add_argument("--model", default="sd15", choices=["sd15", "flux-klein-4b"], help="Model architecture to use")
+    parser.add_argument("--steps", type=int, help="Number of sampling steps (overrides model default)")
+    parser.add_argument("--cfg", type=float, help="Classifier Free Guidance scale (overrides model default)")
 
     args = parser.parse_args()
 
     try:
         validate_args(args)
-        generate_image(args.prompt, args.name, args.width, args.height, args.server)
+        generate_image(args.prompt, args.name, args.width, args.height, args.server, args.model, args.steps, args.cfg)
     except ValueError as e:
         logger.error(f"❌ Input validation failed: {e}")
         sys.exit(1)
