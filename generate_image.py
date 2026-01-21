@@ -37,7 +37,7 @@ def suggest_model(args):
         return "wan-video"
 
     if args.task == "image-to-video":
-        return "svd"
+        return "wan-video"
 
     if args.task == "paint-by-numbers":
         return "sdxl"
@@ -125,7 +125,10 @@ def get_workflow(args, seed):
 
     elif args.task == "image-to-video":
         server_filename = upload_image(args.image, args.server)
-        return workflows.get_svd_workflow(args.prompt, server_filename, args.name, seed, args.steps, args.cfg)
+        if args.model == "wan-video":
+            return workflows.get_wan_i2v_workflow(args.prompt, server_filename, args.name, seed, args.steps)
+        else:
+            return workflows.get_svd_workflow(args.prompt, server_filename, args.name, seed, args.steps, args.cfg)
 
     return None
 

@@ -131,7 +131,7 @@ def get_sdxl_workflow(prompt, name, width, height, seed, steps=None, cfg=None, u
 
 def get_wan_workflow(prompt, name, seed, steps=None):
     """
-    Wan2.1 Video generation workflow using separated UNET and VAE loaders.
+    Wan2.1 Video generation workflow using WanImageToVideo conditioning.
     """
     actual_steps = steps if steps is not None else 20
 
@@ -148,7 +148,7 @@ def get_wan_workflow(prompt, name, seed, steps=None):
             "inputs": {
                 "clip_name1": "t5xxl_fp8_e4m3fn.safetensors",
                 "clip_name2": "clip_l.safetensors",
-                "type": "wan" # Using wan type CLIP if available
+                "type": "wan"
             }
         },
         "3": {
@@ -158,25 +158,121 @@ def get_wan_workflow(prompt, name, seed, steps=None):
             }
         },
         "4": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0], "text": prompt}},
-        "5": {"class_type": "EmptyLatentImage", "inputs": {"batch_size": 1, "height": 480, "width": 832}},
+        "5": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0], "text": "low quality, blurry, distorted, watermark"}},
         "6": {
+            "class_type": "WanImageToVideo",
+            "inputs": {
+                "positive": ["4", 0],
+                "negative": ["5", 0],
+                "vae": ["3", 0],
+                "width": 832,
+                "height": 480,
+                "length": 81,
+                "batch_size": 1
+            }
+        },
+        "7": {
             "class_type": "KSampler",
             "inputs": {
                 "cfg": 6.0,
                 "denoise": 1.0,
-                "latent_image": ["5", 0],
+                "latent_image": ["6", 2],
                 "model": ["1", 0],
-                "negative": ["7", 0],
-                "positive": ["4", 0],
+                "negative": ["6", 1],
+                "positive": ["6", 0],
                 "sampler_name": "uni_pc",
                 "scheduler": "wan",
                 "seed": seed,
                 "steps": actual_steps
             }
         },
-        "7": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0], "text": "low quality, blurry"}},
-        "8": {"class_type": "VAEDecode", "inputs": {"samples": ["6", 0], "vae": ["3", 0]}},
-        "9": {"class_type": "VideoCombine", "inputs": {"images": ["8", 0], "frame_rate": 16, "loop_count": 0, "filename_prefix": name, "format": "video/h264-mp4"}}
+        "8": {"class_type": "VAEDecode", "inputs": {"samples": ["7", 0], "vae": ["3", 0]}},
+        "9": {
+            "class_type": "VHS_VideoCombine",
+            "inputs": {
+                "images": ["8", 0],
+                "frame_rate": 16,
+                "loop_count": 0,
+                "filename_prefix": name,
+                "format": "video/h264-mp4",
+                "pingpong": False,
+                "save_output": True
+            }
+        }
+    }
+
+def get_wan_i2v_workflow(prompt, image_path, name, seed, steps=None):
+    """
+    Wan2.1 Image-to-Video generation workflow.
+    """
+    actual_steps = steps if steps is not None else 20
+
+    return {
+        "1": {
+            "class_type": "UNETLoader",
+            "inputs": {
+                "unet_name": "wan2.1_i2v_1.3B_fp16.safetensors",
+                "weight_dtype": "default"
+            }
+        },
+        "2": {
+            "class_type": "DualCLIPLoader",
+            "inputs": {
+                "clip_name1": "t5xxl_fp8_e4m3fn.safetensors",
+                "clip_name2": "clip_l.safetensors",
+                "type": "wan"
+            }
+        },
+        "3": {
+            "class_type": "VAELoader",
+            "inputs": {
+                "vae_name": "wan_2.1_vae.safetensors"
+            }
+        },
+        "4": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0], "text": prompt}},
+        "5": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0], "text": "low quality, blurry, static, distorted"}},
+        "10": {"class_type": "LoadImage", "inputs": {"image": image_path}},
+        "6": {
+            "class_type": "WanImageToVideo",
+            "inputs": {
+                "positive": ["4", 0],
+                "negative": ["5", 0],
+                "vae": ["3", 0],
+                "width": 832,
+                "height": 480,
+                "length": 81,
+                "batch_size": 1,
+                "start_image": ["10", 0]
+            }
+        },
+        "7": {
+            "class_type": "KSampler",
+            "inputs": {
+                "cfg": 6.0,
+                "denoise": 1.0,
+                "latent_image": ["6", 2],
+                "model": ["1", 0],
+                "negative": ["6", 1],
+                "positive": ["6", 0],
+                "sampler_name": "uni_pc",
+                "scheduler": "wan",
+                "seed": seed,
+                "steps": actual_steps
+            }
+        },
+        "8": {"class_type": "VAEDecode", "inputs": {"samples": ["7", 0], "vae": ["3", 0]}},
+        "9": {
+            "class_type": "VHS_VideoCombine",
+            "inputs": {
+                "images": ["8", 0],
+                "frame_rate": 16,
+                "loop_count": 0,
+                "filename_prefix": name,
+                "format": "video/h264-mp4",
+                "pingpong": False,
+                "save_output": True
+            }
+        }
     }
 
 def get_svd_workflow(prompt, image_path, name, seed, steps=None, cfg=None):
