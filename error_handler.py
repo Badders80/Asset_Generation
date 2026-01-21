@@ -4,9 +4,12 @@ import os
 
 def setup_logging(log_file="asset_gen.log", level=logging.INFO):
     """Configures logging to both console and a file."""
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
+    # Prevent duplicate handlers
     logger = logging.getLogger()
+    if logger.handlers:
+        return logger
+
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     logger.setLevel(level)
 
     # Console Handler
@@ -15,9 +18,12 @@ def setup_logging(log_file="asset_gen.log", level=logging.INFO):
     logger.addHandler(ch)
 
     # File Handler
-    fh = logging.FileHandler(log_file)
-    fh.setFormatter(formatter)
-    logger.addHandler(fh)
+    try:
+        fh = logging.FileHandler(log_file)
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
+    except Exception:
+        pass # Fallback if log file cannot be written
 
     return logger
 
@@ -38,7 +44,7 @@ class APIError(ComfyUIError):
 
 def handle_fatal_error(error, message="A fatal error occurred"):
     """Logs the error and exits the script."""
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger("error_handler")
     if isinstance(error, APIError):
         logger.error(f"❌ {message}: {error} (Code: {error.code})")
         if error.details:

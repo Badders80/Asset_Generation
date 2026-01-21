@@ -19,6 +19,9 @@ CLIENT_ID = str(uuid.uuid4())
 
 def validate_args(args):
     """Performs domain-specific validation on arguments."""
+    if args.task in ["image-to-video", "paint-by-numbers"] and not args.image:
+        raise ValueError(f"Task '{args.task}' requires an input image path via --image")
+
     if args.task != "image-to-video" and (not args.prompt or args.prompt.strip() == ""):
         raise ValueError("Prompt cannot be empty for this task.")
 
@@ -37,7 +40,7 @@ def suggest_model(args):
         return "svd"
 
     if args.task == "paint-by-numbers":
-        return "sdxl" # SDXL ControlNet is superior to SD1.5
+        return "sdxl"
 
     if args.task == "text-to-image":
         if args.quality == "high":
@@ -56,7 +59,8 @@ def queue_prompt(prompt, server_address):
         with urllib.request.urlopen(req) as response:
             return json.loads(response.read())
     except urllib.error.HTTPError as e:
-        raise error_handler.APIError("Server returned an error", code=e.code, details=e.read().decode())
+        err_msg = e.read().decode()
+        raise error_handler.APIError("Server returned an error", code=e.code, details=err_msg)
     except urllib.error.URLError as e:
         raise error_handler.ConnectionError(f"Failed to connect to server at {url}: {e.reason}")
     except Exception as e:
@@ -81,7 +85,7 @@ def upload_image(image_path, server_address):
     with open(image_path, "rb") as f:
         image_data = f.read()
 
-    # Construct multipart/form-data manually to avoid extra dependencies
+    # Construct multipart/form-data manually
     boundary = "---WebKitFormBoundary7MA4YWxkTrZu0gW"
     body = (
         f"--{boundary}\r\n"
@@ -96,7 +100,7 @@ def upload_image(image_path, server_address):
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read())
             logger.info(f"📤 Uploaded: {filename} to ComfyUI")
-            return result['name'] # Server might rename the file if it exists
+            return result['name']
     except Exception as e:
         raise error_handler.ComfyUIError(f"Failed to upload image {image_path}: {e}")
 
@@ -106,31 +110,22 @@ def get_workflow(args, seed):
 
     if args.task == "text-to-image":
         if args.model == "flux-schnell":
-            return workflows.get_flux_schnell_workflow(args.prompt, args.name, args.width, args.height, seed, args.steps, args.cfg, upscale)
+            return workflows.get_flux_workflow(args.prompt, args.name, args.width, args.height, seed, args.steps, args.cfg, upscale, is_schnell=True)
         elif args.model == "flux-klein-4b":
-            # Use the same robust structure for Klein if requested
-            return workflows.get_flux_schnell_workflow(args.prompt, args.name, args.width, args.height, seed, args.steps, args.cfg, upscale)
-        elif args.model == "sdxl":
-            return workflows.get_sdxl_t2i_workflow(args.prompt, args.name, args.width, args.height, seed, args.steps, args.cfg, upscale)
-        else:
-            return workflows.get_sdxl_t2i_workflow(args.prompt, args.name, args.width, args.height, seed, args.steps, args.cfg, upscale)
+            return workflows.get_flux_workflow(args.prompt, args.name, args.width, args.height, seed, args.steps, args.cfg, upscale, is_schnell=False)
+        else: # sdxl
+            return workflows.get_sdxl_workflow(args.prompt, args.name, args.width, args.height, seed, args.steps, args.cfg, upscale)
 
     elif args.task == "paint-by-numbers":
-        if not args.image:
-            raise ValueError("Task 'paint-by-numbers' requires an input image path via --image")
         server_filename = upload_image(args.image, args.server)
-        return workflows.get_paint_by_numbers_workflow(args.prompt, server_filename, args.name, seed, args.steps, args.cfg)
+        return workflows.get_controlnet_workflow(args.prompt, server_filename, args.name, seed, args.steps, args.cfg)
 
     elif args.task == "text-to-video":
-        if args.model == "wan-video":
-            return workflows.get_wan_video_workflow(args.prompt, args.name, seed, args.steps)
-        return workflows.get_text_to_video_workflow(args.prompt, args.name, seed, args.steps, args.cfg)
+        return workflows.get_wan_workflow(args.prompt, args.name, seed, args.steps)
 
     elif args.task == "image-to-video":
-        if not args.image:
-            raise ValueError("Task 'image-to-video' requires an input image path via --image")
         server_filename = upload_image(args.image, args.server)
-        return workflows.get_image_to_video_workflow(server_filename, args.name, seed, args.steps, args.cfg)
+        return workflows.get_svd_workflow(args.prompt, server_filename, args.name, seed, args.steps, args.cfg)
 
     return None
 
@@ -140,7 +135,7 @@ def generate_asset(args, iteration=0):
     try:
         workflow = get_workflow(args, seed)
         if not workflow:
-            raise ValueError(f"Unsupported task: {args.task}")
+            raise ValueError(f"Unsupported task/model combination: {args.task}/{args.model}")
 
         ws = websocket.WebSocket()
         ws.connect(f"ws://{args.server}/ws?clientId={CLIENT_ID}")
@@ -166,9 +161,9 @@ def generate_asset(args, iteration=0):
             node_output = history['outputs'][node_id]
             if 'images' in node_output:
                 filename = node_output['images'][0]['filename']
-                logger.info(f"✅ Created: {filename}")
+                logger.info(f"✅ Created Image: {filename}")
                 output_found = True
-            if 'gifs' in node_output: # VideoCombine often outputs in 'gifs' key even for mp4
+            if 'gifs' in node_output:
                 filename = node_output['gifs'][0]['filename']
                 logger.info(f"✅ Created Video: {filename}")
                 output_found = True
@@ -193,32 +188,32 @@ if __name__ == "__main__":
     parser.add_argument("prompt", nargs='?', default="", help="Text prompt for image generation")
     parser.add_argument("--task", default="text-to-image", choices=["text-to-image", "text-to-video", "image-to-video", "paint-by-numbers"], help="Task to perform")
     parser.add_argument("--name", default="evergreen", help="Prefix for the output filename")
-    parser.add_argument("--width", type=int, default=512, help="Image width")
-    parser.add_argument("--height", type=int, default=896, help="Image height")
-    parser.add_argument("--server", default=SERVER_ADDRESS, help="ComfyUI server address (e.g. 127.0.0.1:8188)")
-    parser.add_argument("--model", default="sdxl", choices=["sdxl", "flux-schnell", "flux-klein-4b", "svd", "wan-video"], help="Model architecture to use")
-    parser.add_argument("--auto-model", action="store_true", help="Automatically select the best model for the task")
+    parser.add_argument("--width", type=int, default=1024, help="Image width")
+    parser.add_argument("--height", type=int, default=1024, help="Image height")
+    parser.add_argument("--server", default=SERVER_ADDRESS, help="ComfyUI server address")
+    parser.add_argument("--model", choices=["sdxl", "flux-schnell", "flux-klein-4b", "svd", "wan-video"], help="Model architecture to use")
+    parser.add_argument("--auto-model", action="store_true", help="Automatically select the best model")
     parser.add_argument("--quality", default="balanced", choices=["speed", "balanced", "high"], help="Quality preference")
-    parser.add_argument("--steps", type=int, help="Number of sampling steps (overrides model default)")
-    parser.add_argument("--cfg", type=float, help="Classifier Free Guidance scale (overrides model default)")
-    parser.add_argument("--image", help="Input image path (for image-to-video or paint-by-numbers)")
-    parser.add_argument("--count", type=int, default=1, help="Number of assets to generate (for batching)")
+    parser.add_argument("--steps", type=int, help="Sampling steps override")
+    parser.add_argument("--cfg", type=float, help="CFG scale override")
+    parser.add_argument("--image", help="Input image path")
+    parser.add_argument("--count", type=int, default=1, help="Number of assets to generate")
 
     args = parser.parse_args()
 
     if args.auto_model:
-        recommended = suggest_model(args)
-        logger.info(f"💡 Auto-model enabled. Recommended for {args.task} ({args.quality}): {recommended}")
-        args.model = recommended
-    else:
-        logger.info(f"🔧 Manual model selection: {args.model}")
+        args.model = suggest_model(args)
+        logger.info(f"💡 Auto-model: {args.model}")
+    elif not args.model:
+        args.model = "sdxl" # Default
+        logger.info(f"🔧 Defaulting to: {args.model}")
 
     try:
         validate_args(args)
         for i in range(args.count):
             generate_asset(args, i)
     except ValueError as e:
-        logger.error(f"❌ Input validation failed: {e}")
+        logger.error(f"❌ Validation failed: {e}")
         sys.exit(1)
     except Exception as e:
         error_handler.handle_fatal_error(e)

@@ -3,24 +3,47 @@
 SOURCE_MODELS="/mnt/scratch/models"
 COMFY_MODELS="/mnt/scratch/projects/ComfyUI/models"
 
-echo "🧹 Removing broken/outdated models..."
+echo "🐎 Evolution Stables: Model Consolidation"
+
+# Ensure ComfyUI model directories exist
+mkdir -p "$COMFY_MODELS/checkpoints"
+mkdir -p "$COMFY_MODELS/clip"
+mkdir -p "$COMFY_MODELS/vae"
+mkdir -p "$COMFY_MODELS/diffusion_models"
+mkdir -p "$COMFY_MODELS/loras"
+mkdir -p "$COMFY_MODELS/controlnet"
+mkdir -p "$COMFY_MODELS/upscale_models"
+
+echo "🧹 Pruning unusable legacy assets..."
+# Remove SD 1.5 if it exists in project checkpoints
 rm -f "$COMFY_MODELS/checkpoints/v1-5-pruned-emaonly-fp16.safetensors"
+# Remove broken Flux Klein
 rm -f "$COMFY_MODELS/unet/flux-2-klein-4b-fp8.safetensors"
 
-echo "🔗 Symlinking Flux Schnell..."
-mkdir -p "$COMFY_MODELS/checkpoints"
-ln -sf "$SOURCE_MODELS/Checkpoints/flux1-schnell-fp8.safetensors" "$COMFY_MODELS/checkpoints/flux1-schnell-fp8.safetensors"
+echo "🔗 Establishing single source of truth for models..."
 
-echo "🔗 Symlinking Wan2.1 video model..."
-mkdir -p "$COMFY_MODELS/diffusion_models"
-ln -sf "$SOURCE_MODELS/diffusion_models/wan2.1_t2v_1.3B_fp16.safetensors" "$COMFY_MODELS/diffusion_models/wan2.1_t2v_1.3B_fp16.safetensors"
+function link_model() {
+    SRC=$1
+    DEST_DIR=$2
+    if [ -e "$SRC" ]; then
+        FILENAME=$(basename "$SRC")
+        ln -sf "$SRC" "$DEST_DIR/$FILENAME"
+        echo "✅ Linked $FILENAME"
+    fi
+}
 
-echo "🔗 Symlinking other components..."
-mkdir -p "$COMFY_MODELS/clip" "$COMFY_MODELS/vae" "$COMFY_MODELS/loras" "$COMFY_MODELS/controlnet"
-for te in "$SOURCE_MODELS/text_encoders"/*; do [ -e "$te" ] && ln -sf "$te" "$COMFY_MODELS/clip/"; done
-for vae in "$SOURCE_MODELS/VAE"/*; do [ -e "$vae" ] && ln -sf "$vae" "$COMFY_MODELS/vae/"; done
-for lora in "$SOURCE_MODELS/LoRAs"/*; do [ -e "$lora" ] && ln -sf "$lora" "$COMFY_MODELS/loras/"; done
-for cn in "$SOURCE_MODELS/ControlNet"/*; do [ -e "$cn" ] && ln -sf "$cn" "$COMFY_MODELS/controlnet/"; done
+# Main Checkpoints
+link_model "$SOURCE_MODELS/Checkpoints/flux1-schnell-fp8.safetensors" "$COMFY_MODELS/checkpoints"
+link_model "$SOURCE_MODELS/Checkpoints/sd_xl_base_1.0.safetensors" "$COMFY_MODELS/checkpoints"
+
+# Video Models
+link_model "$SOURCE_MODELS/diffusion_models/wan2.1_t2v_1.3B_fp16.safetensors" "$COMFY_MODELS/diffusion_models"
+link_model "$SOURCE_MODELS/Checkpoints/svd.safetensors" "$COMFY_MODELS/checkpoints"
+
+# Components
+for te in "$SOURCE_MODELS/text_encoders"/*; do [ -e "$te" ] && link_model "$te" "$COMFY_MODELS/clip"; done
+for v in "$SOURCE_MODELS/VAE"/*; do [ -e "$v" ] && link_model "$v" "$COMFY_MODELS/vae"; done
+for l in "$SOURCE_MODELS/LoRAs"/*; do [ -e "$l" ] && link_model "$l" "$COMFY_MODELS/loras"; done
+for cn in "$SOURCE_MODELS/ControlNet"/*; do [ -e "$cn" ] && link_model "$cn" "$COMFY_MODELS/controlnet"; done
 
 echo "✅ Consolidation complete!"
-ls -lh "$COMFY_MODELS/checkpoints/"
