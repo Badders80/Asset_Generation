@@ -38,9 +38,10 @@ python3 generate_image.py "thoroughbred horse in full sprint, dynamic camera mot
 
 ## Infrastructure Setup
 
-1. **Consolidate Models**: Run `./consolidate_models.sh` to link your 17GB Flux model and others.
-2. **Start Server**: Run `./start_comfy_fixed.sh --clean` to start with RTX 3060 optimizations.
-3. **Monitor**: Watch `asset_gen.log` for detailed progress.
+1. **Install Custom Nodes**: Run `./setup_custom_nodes.sh` to install Wan2.1 and Video Helper Suite nodes.
+2. **Consolidate Models**: Run `./consolidate_models.sh` to link your 17GB Flux model and others.
+3. **Start Server**: Run `./start_comfy_fixed.sh --clean` to start with RTX 3060 optimizations.
+4. **Monitor**: Watch `asset_gen.log` for detailed progress.
 
 ## Workflow Diagram
 

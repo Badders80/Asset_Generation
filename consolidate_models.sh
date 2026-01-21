@@ -35,6 +35,7 @@ safe_link "$SOURCE_DIR/Checkpoints/flux1-schnell-fp8.safetensors" "$COMFY_DIR/un
 
 # Wan 2.1 Video
 safe_link "$SOURCE_DIR/diffusion_models/wan2.1_t2v_1.3B_fp16.safetensors" "$COMFY_DIR/unet"
+safe_link "$SOURCE_DIR/diffusion_models/wan2.1_i2v_1.3B_fp16.safetensors" "$COMFY_DIR/unet"
 safe_link "$SOURCE_DIR/VAE/wan_2.1_vae.safetensors" "$COMFY_DIR/vae"
 
 # Motion Module (AnimateDiff)
