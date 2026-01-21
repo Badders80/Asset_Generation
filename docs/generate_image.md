@@ -20,6 +20,7 @@ python3 generate_image.py [prompt] [options]
 ### Key Options
 - `--auto-model`: Recommends the best model for the task/quality.
 - `--count [N]`: Queues N sequential generations (perfect for overnight runs).
+- `--seed [SEED]`: Manual seed for reproducible generation.
 - `--quality {speed, balanced, high}`: Adjusts parameters and enables upscaling.
 - `--width / --height`: Target dimensions (defaults to 1024x1024).
 

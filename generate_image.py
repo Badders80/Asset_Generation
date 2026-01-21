@@ -133,7 +133,8 @@ def get_workflow(args, seed):
     return None
 
 def generate_asset(args, iteration=0):
-    seed = random.randint(0, 18446744073709551615)
+    # Use provided seed or generate random one
+    seed = args.seed if hasattr(args, 'seed') and args.seed is not None else random.randint(0, 18446744073709551615)
     ws = None
     try:
         workflow = get_workflow(args, seed)
@@ -201,6 +202,7 @@ if __name__ == "__main__":
     parser.add_argument("--cfg", type=float, help="CFG scale override")
     parser.add_argument("--image", help="Input image path")
     parser.add_argument("--count", type=int, default=1, help="Number of assets to generate")
+    parser.add_argument("--seed", type=int, help="Manual seed for generation")
 
     args = parser.parse_args()
 
