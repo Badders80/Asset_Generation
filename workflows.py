@@ -1,55 +1,92 @@
 def get_flux_schnell_workflow(prompt, name, width, height, seed, steps=None, cfg=None, upscale=False):
     """
-    Flux Schnell workflow using the 17GB FP8 checkpoint.
-    Optimized for RTX 3060 12GB.
+    Flux Schnell workflow optimized for FP8 on RTX 3060.
+    Uses specific loaders for maximum reliability.
     """
     actual_steps = steps if steps is not None else 4
     actual_cfg = cfg if cfg is not None else 1.0
 
     workflow = {
+        "1": {
+            "class_type": "UNETLoader",
+            "inputs": {
+                "unet_name": "flux1-schnell-fp8.safetensors",
+                "weight_dtype": "fp8_e4m3fn"
+            }
+        },
+        "2": {
+            "class_type": "DualCLIPLoader",
+            "inputs": {
+                "clip_name1": "t5xxl_fp8_e4m3fn.safetensors",
+                "clip_name2": "clip_l.safetensors",
+                "type": "flux"
+            }
+        },
+        "3": {
+            "class_type": "VAELoader",
+            "inputs": {
+                "vae_name": "ae.safetensors"
+            }
+        },
         "4": {
-            "class_type": "CheckpointLoaderSimple",
-            "inputs": {"ckpt_name": "flux1-schnell-fp8.safetensors"}
+            "class_type": "CLIPTextEncode",
+            "inputs": {
+                "clip": ["2", 0],
+                "text": prompt
+            }
         },
         "5": {
-            "class_type": "EmptyLatentImage",
-            "inputs": {"batch_size": 1, "height": height, "width": width}
+            "class_type": "FluxGuidance",
+            "inputs": {
+                "guidance": 3.5,
+                "conditioning": ["4", 0]
+            }
         },
         "6": {
             "class_type": "CLIPTextEncode",
-            "inputs": {"clip": ["4", 1], "text": prompt}
-        },
-        "3": {
-            "class_type": "KSampler",
             "inputs": {
-                "cfg": actual_cfg,
-                "denoise": 1.0,
-                "latent_image": ["5", 0],
-                "model": ["4", 0],
-                "negative": ["7", 0],
-                "positive": ["6", 0],
-                "sampler_name": "euler",
-                "scheduler": "simple",
-                "seed": seed,
-                "steps": actual_steps
+                "clip": ["2", 0],
+                "text": ""
             }
         },
         "7": {
-            "class_type": "CLIPTextEncode",
-            "inputs": {"clip": ["4", 1], "text": ""}
+            "class_type": "EmptySD3LatentImage",
+            "inputs": {
+                "width": width,
+                "height": height,
+                "batch_size": 1
+            }
         },
         "8": {
+            "class_type": "KSampler",
+            "inputs": {
+                "seed": seed,
+                "steps": actual_steps,
+                "cfg": actual_cfg,
+                "sampler_name": "euler",
+                "scheduler": "simple",
+                "denoise": 1.0,
+                "model": ["1", 0],
+                "positive": ["5", 0],
+                "negative": ["6", 0],
+                "latent_image": ["7", 0]
+            }
+        },
+        "9": {
             "class_type": "VAEDecode",
-            "inputs": {"samples": ["3", 0], "vae": ["4", 2]}
+            "inputs": {
+                "samples": ["8", 0],
+                "vae": ["3", 0]
+            }
         }
     }
 
     if upscale:
-        workflow["10"] = {"class_type": "UpscaleModelLoader", "inputs": {"model_name": "4x-UltraSharp.pth"}}
-        workflow["11"] = {"class_type": "ImageUpscaleWithModel", "inputs": {"image": ["8", 0], "upscale_model": ["10", 0]}}
-        workflow["9"] = {"class_type": "SaveImage", "inputs": {"filename_prefix": name, "images": ["11", 0]}}
+        workflow["11"] = {"class_type": "UpscaleModelLoader", "inputs": {"model_name": "4x-UltraSharp.pth"}}
+        workflow["12"] = {"class_type": "ImageUpscaleWithModel", "inputs": {"image": ["9", 0], "upscale_model": ["11", 0]}}
+        workflow["10"] = {"class_type": "SaveImage", "inputs": {"filename_prefix": name, "images": ["12", 0]}}
     else:
-        workflow["9"] = {"class_type": "SaveImage", "inputs": {"filename_prefix": name, "images": ["8", 0]}}
+        workflow["10"] = {"class_type": "SaveImage", "inputs": {"filename_prefix": name, "images": ["9", 0]}}
 
     return workflow
 

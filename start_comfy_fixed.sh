@@ -13,7 +13,7 @@ if [[ "$1" == "--clean" ]]; then
 fi
 
 # Check if ComfyUI is already running
-if pgrep -f "python main.py --listen 0.0.0.0" > /dev/null; then
+if pgrep -f "python3 main.py --listen 0.0.0.0" > /dev/null; then
     echo "⚠️ ComfyUI is already running. Use --clean for a fresh start."
     exit 0
 fi
@@ -37,7 +37,7 @@ cd "$COMFYUI_DIR" || exit 1
 echo "🚀 Starting ComfyUI with RTX 3060 optimizations..."
 # Optimizations: force-fp16 for speed, disable-smart-memory to prevent overhead
 # We explicitly avoid --highvram as recommended for this specific card
-python main.py --listen 0.0.0.0 --force-fp16 --disable-smart-memory > "$LOG_FILE" 2>&1 &
+python3 main.py --listen 0.0.0.0 --force-fp16 --disable-smart-memory > "$LOG_FILE" 2>&1 &
 
 # Store PID
 echo $! > "$PROJECT_DIR/comfyui.pid"

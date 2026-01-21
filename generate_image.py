@@ -107,6 +107,9 @@ def get_workflow(args, seed):
     if args.task == "text-to-image":
         if args.model == "flux-schnell":
             return workflows.get_flux_schnell_workflow(args.prompt, args.name, args.width, args.height, seed, args.steps, args.cfg, upscale)
+        elif args.model == "flux-klein-4b":
+            # Use the same robust structure for Klein if requested
+            return workflows.get_flux_schnell_workflow(args.prompt, args.name, args.width, args.height, seed, args.steps, args.cfg, upscale)
         elif args.model == "sdxl":
             return workflows.get_sdxl_t2i_workflow(args.prompt, args.name, args.width, args.height, seed, args.steps, args.cfg, upscale)
         else:
@@ -173,6 +176,10 @@ def generate_asset(args, iteration=0):
         if not output_found:
             raise error_handler.ComfyUIError("No outputs found in history.")
 
+    except error_handler.APIError as e:
+        logger.error(f"❌ API Error: {e}")
+        if e.details:
+            logger.error(f"📝 Details: {e.details}")
     except (error_handler.ComfyUIError, websocket.WebSocketException) as e:
         logger.error(f"❌ Generation failed: {e}")
     except Exception as e:
@@ -189,7 +196,7 @@ if __name__ == "__main__":
     parser.add_argument("--width", type=int, default=512, help="Image width")
     parser.add_argument("--height", type=int, default=896, help="Image height")
     parser.add_argument("--server", default=SERVER_ADDRESS, help="ComfyUI server address (e.g. 127.0.0.1:8188)")
-    parser.add_argument("--model", default="sdxl", choices=["sdxl", "flux-schnell", "svd", "wan-video"], help="Model architecture to use")
+    parser.add_argument("--model", default="sdxl", choices=["sdxl", "flux-schnell", "flux-klein-4b", "svd", "wan-video"], help="Model architecture to use")
     parser.add_argument("--auto-model", action="store_true", help="Automatically select the best model for the task")
     parser.add_argument("--quality", default="balanced", choices=["speed", "balanced", "high"], help="Quality preference")
     parser.add_argument("--steps", type=int, help="Number of sampling steps (overrides model default)")
