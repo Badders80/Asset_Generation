@@ -40,3 +40,22 @@ python3 generate_image.py "thoroughbred horse in full sprint, dynamic camera mot
 1. **Consolidate Models**: Run `./consolidate_models.sh` to link your 17GB Flux model and others.
 2. **Start Server**: Run `./start_comfy_fixed.sh --clean` to start with RTX 3060 optimizations.
 3. **Monitor**: Watch `asset_gen.log` for detailed progress.
+
+## Workflow Diagram
+
+```mermaid
+graph TD
+    A[Start] --> B[Parse & Validate Arguments]
+    B --> C{Auto-model?}
+    C -- Yes --> D[Suggest Best Model based on Task/Quality]
+    C -- No --> E[Use Selected Model]
+    D --> F[Loop Start: 1 to Count]
+    E --> F
+    F --> G[Initialize WebSocket]
+    G --> H[Select Workflow Template]
+    H --> I[Queue Prompt to ComfyUI]
+    I --> J{Execution Done?}
+    J -- Yes --> K[Retrieve History & Log Results]
+    K --> L[Loop End]
+    L --> M[Close WebSocket & Finish]
+```

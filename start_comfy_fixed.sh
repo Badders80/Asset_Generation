@@ -8,7 +8,7 @@ LOG_FILE="$PROJECT_DIR/comfyui_server.log"
 # Optional: Clean restart
 if [[ "$1" == "--clean" ]]; then
     echo "🧹 Killing existing ComfyUI processes..."
-    pkill -f "main.py --listen 0.0.0.0" || true
+    pkill -f "python3 main.py --listen 0.0.0.0" || true
     sleep 2
 fi
 

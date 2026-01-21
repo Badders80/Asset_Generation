@@ -33,11 +33,15 @@ function link_model() {
 }
 
 # Main Checkpoints
-link_model "$SOURCE_MODELS/Checkpoints/flux1-schnell-fp8.safetensors" "$COMFY_MODELS/checkpoints"
 link_model "$SOURCE_MODELS/Checkpoints/sd_xl_base_1.0.safetensors" "$COMFY_MODELS/checkpoints"
 
+# Flux Models (using UNETLoader)
+mkdir -p "$COMFY_MODELS/unet"
+link_model "$SOURCE_MODELS/Checkpoints/flux1-schnell-fp8.safetensors" "$COMFY_MODELS/unet"
+
 # Video Models
-link_model "$SOURCE_MODELS/diffusion_models/wan2.1_t2v_1.3B_fp16.safetensors" "$COMFY_MODELS/diffusion_models"
+# Wan uses CheckpointLoaderSimple
+link_model "$SOURCE_MODELS/diffusion_models/wan2.1_t2v_1.3B_fp16.safetensors" "$COMFY_MODELS/checkpoints"
 link_model "$SOURCE_MODELS/Checkpoints/svd.safetensors" "$COMFY_MODELS/checkpoints"
 
 # Components
