@@ -1,53 +1,48 @@
 #!/bin/bash
 
-SOURCE_MODELS="/mnt/scratch/models"
-COMFY_MODELS="/mnt/scratch/projects/ComfyUI/models"
+# Define paths
+SOURCE_DIR="/mnt/scratch/models"
+COMFY_DIR="/mnt/scratch/projects/ComfyUI/models"
 
-echo "🐎 Evolution Stables: Model Consolidation"
+echo "🐎 Evolution Stables: Advanced Model Consolidation"
 
-# Ensure ComfyUI model directories exist
-mkdir -p "$COMFY_MODELS/checkpoints"
-mkdir -p "$COMFY_MODELS/clip"
-mkdir -p "$COMFY_MODELS/vae"
-mkdir -p "$COMFY_MODELS/diffusion_models"
-mkdir -p "$COMFY_MODELS/loras"
-mkdir -p "$COMFY_MODELS/controlnet"
-mkdir -p "$COMFY_MODELS/upscale_models"
+# Function to create directories and link
+safe_link() {
+    local src="$1"
+    local dest_dir="$2"
+    local name=$(basename "$src")
 
-echo "🧹 Pruning unusable legacy assets..."
-# Remove SD 1.5 if it exists in project checkpoints
-rm -f "$COMFY_MODELS/checkpoints/v1-5-pruned-emaonly-fp16.safetensors"
-# Remove broken Flux Klein
-rm -f "$COMFY_MODELS/unet/flux-2-klein-4b-fp8.safetensors"
-
-echo "🔗 Establishing single source of truth for models..."
-
-function link_model() {
-    SRC=$1
-    DEST_DIR=$2
-    if [ -e "$SRC" ]; then
-        FILENAME=$(basename "$SRC")
-        ln -sf "$SRC" "$DEST_DIR/$FILENAME"
-        echo "✅ Linked $FILENAME"
+    if [ ! -e "$src" ]; then
+        echo "⚠️ Source missing: $src"
+        return
     fi
+
+    mkdir -p "$dest_dir"
+    ln -sf "$src" "$dest_dir/$name"
+    echo "✅ Linked: $name"
 }
 
-# Main Checkpoints
-link_model "$SOURCE_MODELS/Checkpoints/sd_xl_base_1.0.safetensors" "$COMFY_MODELS/checkpoints"
+echo "🧹 Pruning legacy/broken files..."
+rm -f "$COMFY_DIR/checkpoints/v1-5-pruned-emaonly-fp16.safetensors"
+rm -f "$COMFY_DIR/unet/flux-2-klein-4b-fp8.safetensors"
 
-# Flux Models (using UNETLoader)
-mkdir -p "$COMFY_MODELS/unet"
-link_model "$SOURCE_MODELS/Checkpoints/flux1-schnell-fp8.safetensors" "$COMFY_MODELS/unet"
+echo "🔗 Linking Core Models..."
+# Flux Schnell (17GB)
+safe_link "$SOURCE_DIR/Checkpoints/flux1-schnell-fp8.safetensors" "$COMFY_DIR/unet"
 
-# Video Models
-# Wan uses CheckpointLoaderSimple
-link_model "$SOURCE_MODELS/diffusion_models/wan2.1_t2v_1.3B_fp16.safetensors" "$COMFY_MODELS/checkpoints"
-link_model "$SOURCE_MODELS/Checkpoints/svd.safetensors" "$COMFY_MODELS/checkpoints"
+# SDXL Base
+# Already at $COMFY_DIR/checkpoints/sd_xl_base_1.0.safetensors - no action needed
 
-# Components
-for te in "$SOURCE_MODELS/text_encoders"/*; do [ -e "$te" ] && link_model "$te" "$COMFY_MODELS/clip"; done
-for v in "$SOURCE_MODELS/VAE"/*; do [ -e "$v" ] && link_model "$v" "$COMFY_MODELS/vae"; done
-for l in "$SOURCE_MODELS/LoRAs"/*; do [ -e "$l" ] && link_model "$l" "$COMFY_MODELS/loras"; done
-for cn in "$SOURCE_MODELS/ControlNet"/*; do [ -e "$cn" ] && link_model "$cn" "$COMFY_MODELS/controlnet"; done
+# Wan 2.1 Video
+safe_link "$SOURCE_DIR/diffusion_models/wan2.1_t2v_1.3B_fp16.safetensors" "$COMFY_DIR/unet"
+safe_link "$SOURCE_DIR/VAE/wan_2.1_vae.safetensors" "$COMFY_DIR/vae"
+
+# Motion Module (AnimateDiff)
+safe_link "$SOURCE_DIR/Checkpoints/mm_sdxl_v10_beta.ckpt" "$COMFY_DIR/checkpoints"
+
+echo "🔗 Linking Supporting Encoders..."
+# Flux Encoders
+safe_link "$SOURCE_DIR/clip/umt5_xxl_fp8_e4m3fn_scaled.safetensors" "$COMFY_DIR/clip"
+# Others are likely already in $COMFY_DIR/clip based on audit
 
 echo "✅ Consolidation complete!"

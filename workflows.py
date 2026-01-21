@@ -1,11 +1,11 @@
 def get_flux_workflow(prompt, name, width, height, seed, steps=None, cfg=None, upscale=False, is_schnell=True):
     """
     Flux workflow optimized for FP8 on RTX 3060.
-    is_schnell=True uses 17GB Flux Schnell, False uses Flux Klein 4B (if available).
     """
     actual_steps = steps if steps is not None else 4
     actual_cfg = cfg if cfg is not None else 1.0
-    ckpt_name = "flux1-schnell-fp8.safetensors" if is_schnell else "flux-2-klein-4b-fp8.safetensors"
+    # Use the 17GB schnell model by default as linked in consolidate_models.sh
+    ckpt_name = "flux1-schnell-fp8.safetensors"
 
     workflow = {
         "1": {
@@ -93,7 +93,7 @@ def get_flux_workflow(prompt, name, width, height, seed, steps=None, cfg=None, u
 
 def get_sdxl_workflow(prompt, name, width, height, seed, steps=None, cfg=None, upscale=False):
     """
-    SDXL workflow optimized for high-quality production equine imagery.
+    SDXL workflow optimized for equine imagery.
     """
     actual_steps = steps if steps is not None else 30
     actual_cfg = cfg if cfg is not None else 7.0
@@ -131,24 +131,57 @@ def get_sdxl_workflow(prompt, name, width, height, seed, steps=None, cfg=None, u
 
 def get_wan_workflow(prompt, name, seed, steps=None):
     """
-    Wan2.1 Video generation workflow for 1.3B FP16 model.
-    Optimized for 12GB VRAM.
+    Wan2.1 Video generation workflow using separated UNET and VAE loaders.
     """
     actual_steps = steps if steps is not None else 20
 
     return {
-        "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "wan2.1_t2v_1.3B_fp16.safetensors"}},
-        "2": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1], "text": prompt}},
-        "3": {"class_type": "EmptyLatentImage", "inputs": {"batch_size": 1, "height": 480, "width": 832}},
-        "4": {"class_type": "KSampler", "inputs": {"cfg": 6.0, "denoise": 1.0, "latent_image": ["3", 0], "model": ["1", 0], "negative": ["5", 0], "positive": ["2", 0], "sampler_name": "uni_pc", "scheduler": "wan", "seed": seed, "steps": actual_steps}},
-        "5": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1], "text": "low quality, blurry"}},
-        "6": {"class_type": "VAEDecode", "inputs": {"samples": ["4", 0], "vae": ["1", 2]}},
-        "7": {"class_type": "VideoCombine", "inputs": {"images": ["6", 0], "frame_rate": 16, "loop_count": 0, "filename_prefix": name, "format": "video/h264-mp4"}}
+        "1": {
+            "class_type": "UNETLoader",
+            "inputs": {
+                "unet_name": "wan2.1_t2v_1.3B_fp16.safetensors",
+                "weight_dtype": "default"
+            }
+        },
+        "2": {
+            "class_type": "DualCLIPLoader",
+            "inputs": {
+                "clip_name1": "t5xxl_fp8_e4m3fn.safetensors",
+                "clip_name2": "clip_l.safetensors",
+                "type": "wan" # Using wan type CLIP if available
+            }
+        },
+        "3": {
+            "class_type": "VAELoader",
+            "inputs": {
+                "vae_name": "wan_2.1_vae.safetensors"
+            }
+        },
+        "4": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0], "text": prompt}},
+        "5": {"class_type": "EmptyLatentImage", "inputs": {"batch_size": 1, "height": 480, "width": 832}},
+        "6": {
+            "class_type": "KSampler",
+            "inputs": {
+                "cfg": 6.0,
+                "denoise": 1.0,
+                "latent_image": ["5", 0],
+                "model": ["1", 0],
+                "negative": ["7", 0],
+                "positive": ["4", 0],
+                "sampler_name": "uni_pc",
+                "scheduler": "wan",
+                "seed": seed,
+                "steps": actual_steps
+            }
+        },
+        "7": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0], "text": "low quality, blurry"}},
+        "8": {"class_type": "VAEDecode", "inputs": {"samples": ["6", 0], "vae": ["3", 0]}},
+        "9": {"class_type": "VideoCombine", "inputs": {"images": ["8", 0], "frame_rate": 16, "loop_count": 0, "filename_prefix": name, "format": "video/h264-mp4"}}
     }
 
 def get_svd_workflow(prompt, image_path, name, seed, steps=None, cfg=None):
     """
-    Stable Video Diffusion (SVD) workflow for image-to-video.
+    SVD workflow for image-to-video.
     """
     actual_steps = steps if steps is not None else 20
     actual_cfg = cfg if cfg is not None else 2.5
@@ -165,7 +198,7 @@ def get_svd_workflow(prompt, image_path, name, seed, steps=None, cfg=None):
 
 def get_controlnet_workflow(prompt, reference_image, name, seed, steps=None, cfg=None):
     """
-    ControlNet Canny with SDXL for superior guided imagery.
+    ControlNet Canny with SDXL.
     """
     actual_steps = steps if steps is not None else 25
     actual_cfg = cfg if cfg is not None else 7.0
