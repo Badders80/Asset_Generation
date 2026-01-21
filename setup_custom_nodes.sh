@@ -29,8 +29,11 @@ install_node() {
     fi
 }
 
-# 1. Wan2.1 Nodes
-install_node "https://github.com/Wan-Video/ComfyUI-Wan.git"
+echo "⬆️  Updating ComfyUI Core..."
+cd "$COMFYUI_DIR" && git pull && cd "custom_nodes"
+
+# 1. Wan2.1 Nodes (Using kijai's well-maintained suite)
+install_node "https://github.com/kijai/ComfyUI-WanVideo.git"
 
 # 2. Video Helper Suite (Required for VideoCombine and high-quality encoding)
 install_node "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git"
@@ -41,13 +44,16 @@ install_node "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git"
 echo ""
 echo "📦 Installing Python dependencies for custom nodes..."
 # Try to find the venv
-if [ -d "../../venv" ]; then
-    source "../../venv/bin/activate"
-    pip install -r ComfyUI-Wan/requirements.txt
+VENV_PATH="$COMFYUI_DIR/venv"
+if [ -d "$VENV_PATH" ]; then
+    echo "🐍 Using virtual environment at $VENV_PATH"
+    source "$VENV_PATH/bin/activate"
+    pip install -r ComfyUI-WanVideo/requirements.txt
     pip install -r ComfyUI-VideoHelperSuite/requirements.txt
 elif command -v pip3 &> /dev/null; then
-    pip3 install -r ComfyUI-Wan/requirements.txt
-    pip3 install -r ComfyUI-VideoHelperSuite/requirements.txt
+    echo "⚠️  No venv found, using system pip3 (with --break-system-packages if needed)"
+    pip3 install -r ComfyUI-WanVideo/requirements.txt --break-system-packages || pip3 install -r ComfyUI-WanVideo/requirements.txt
+    pip3 install -r ComfyUI-VideoHelperSuite/requirements.txt --break-system-packages || pip3 install -r ComfyUI-VideoHelperSuite/requirements.txt
 else
     echo "⚠️  Could not find pip to install requirements. Please install them manually."
 fi

@@ -131,7 +131,7 @@ def get_sdxl_workflow(prompt, name, width, height, seed, steps=None, cfg=None, u
 
 def get_wan_workflow(prompt, name, seed, steps=None):
     """
-    Wan2.1 Video generation workflow using WanImageToVideo conditioning.
+    Wan2.1 Video generation workflow (T2V).
     """
     actual_steps = steps if steps is not None else 20
 
@@ -160,7 +160,7 @@ def get_wan_workflow(prompt, name, seed, steps=None):
         "4": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0], "text": prompt}},
         "5": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0], "text": "low quality, blurry, distorted, watermark"}},
         "6": {
-            "class_type": "WanImageToVideo",
+            "class_type": "WanVideoTextToVideo",
             "inputs": {
                 "positive": ["4", 0],
                 "negative": ["5", 0],
@@ -237,7 +237,7 @@ def get_wan_i2v_workflow(prompt, image_path, name, seed, steps=None):
         "5": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0], "text": "low quality, blurry, static, distorted"}},
         "10": {"class_type": "LoadImage", "inputs": {"image": image_path}},
         "6": {
-            "class_type": "WanImageToVideo",
+            "class_type": "WanVideoImageToVideo",
             "inputs": {
                 "positive": ["4", 0],
                 "negative": ["5", 0],
@@ -246,7 +246,7 @@ def get_wan_i2v_workflow(prompt, image_path, name, seed, steps=None):
                 "height": 480,
                 "length": 81,
                 "batch_size": 1,
-                "start_image": ["10", 0]
+                "image": ["10", 0]
             }
         },
         "7": {
