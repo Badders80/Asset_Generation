@@ -195,8 +195,12 @@ def get_wan_workflow(prompt, name, seed, steps=None):
                 "loop_count": 0,
                 "filename_prefix": name,
                 "format": "video/h264-mp4",
+                "pix_fmt": "yuv420p",
+                "crf": 19,
+                "save_output": True,
                 "pingpong": False,
-                "save_output": True
+                "bitrate": 100,
+                "megabit": True
             }
         }
     }
@@ -269,8 +273,12 @@ def get_wan_i2v_workflow(prompt, image_path, name, seed, steps=None):
                 "loop_count": 0,
                 "filename_prefix": name,
                 "format": "video/h264-mp4",
+                "pix_fmt": "yuv420p",
+                "crf": 19,
+                "save_output": True,
                 "pingpong": False,
-                "save_output": True
+                "bitrate": 100,
+                "megabit": True
             }
         }
     }
@@ -289,7 +297,22 @@ def get_svd_workflow(prompt, image_path, name, seed, steps=None, cfg=None):
         "4": {"class_type": "KSampler", "inputs": {"cfg": actual_cfg, "denoise": 1.0, "latent_image": ["3", 2], "model": ["2", 0], "negative": ["5", 0], "positive": ["3", 0], "sampler_name": "euler", "scheduler": "karras", "seed": seed, "steps": actual_steps}},
         "5": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 1], "text": "low quality, blurry"}},
         "6": {"class_type": "VAEDecode", "inputs": {"samples": ["4", 0], "vae": ["2", 2]}},
-        "7": {"class_type": "VideoCombine", "inputs": {"images": ["6", 0], "frame_rate": 6, "loop_count": 0, "filename_prefix": name, "format": "video/h264-mp4"}}
+        "7": {
+            "class_type": "VHS_VideoCombine",
+            "inputs": {
+                "images": ["6", 0],
+                "frame_rate": 6,
+                "loop_count": 0,
+                "filename_prefix": name,
+                "format": "video/h264-mp4",
+                "pix_fmt": "yuv420p",
+                "crf": 19,
+                "save_output": True,
+                "pingpong": False,
+                "bitrate": 100,
+                "megabit": True
+            }
+        }
     }
 
 def get_controlnet_workflow(prompt, reference_image, name, seed, steps=None, cfg=None):
