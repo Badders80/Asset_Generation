@@ -33,9 +33,11 @@ if [ ! -d "$COMFYUI_DIR" ]; then
 fi
 cd "$COMFYUI_DIR" || exit 1
 
-# Start ComfyUI with the listen flag in the background
-echo "🚀 Starting ComfyUI..."
-python main.py --listen 0.0.0.0 > "$LOG_FILE" 2>&1 &
+# Start ComfyUI with optimized flags for RTX 3060 12GB
+echo "🚀 Starting ComfyUI with RTX 3060 optimizations..."
+# Optimizations: force-fp16 for speed, disable-smart-memory to prevent overhead
+# We explicitly avoid --highvram as recommended for this specific card
+python main.py --listen 0.0.0.0 --force-fp16 --disable-smart-memory > "$LOG_FILE" 2>&1 &
 
 # Store PID
 echo $! > "$PROJECT_DIR/comfyui.pid"

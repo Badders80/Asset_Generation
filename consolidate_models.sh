@@ -16,6 +16,7 @@ mkdir -p "$COMFY_MODELS/diffusion_models"
 ln -sf "$SOURCE_MODELS/diffusion_models/wan2.1_t2v_1.3B_fp16.safetensors" "$COMFY_MODELS/diffusion_models/wan2.1_t2v_1.3B_fp16.safetensors"
 
 echo "🔗 Symlinking other components..."
+mkdir -p "$COMFY_MODELS/clip" "$COMFY_MODELS/vae" "$COMFY_MODELS/loras" "$COMFY_MODELS/controlnet"
 for te in "$SOURCE_MODELS/text_encoders"/*; do [ -e "$te" ] && ln -sf "$te" "$COMFY_MODELS/clip/"; done
 for vae in "$SOURCE_MODELS/VAE"/*; do [ -e "$vae" ] && ln -sf "$vae" "$COMFY_MODELS/vae/"; done
 for lora in "$SOURCE_MODELS/LoRAs"/*; do [ -e "$lora" ] && ln -sf "$lora" "$COMFY_MODELS/loras/"; done
